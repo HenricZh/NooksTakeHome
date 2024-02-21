@@ -53,7 +53,7 @@ app.get('/watch/:sessionId', async (req, res) => {
 
   let session = parties.find((session) => session.id === sessionId);;
 
-  console.log(session);
+  // console.log(session);
   if (!session) {
     return res.status(404).send('Session not found');
   }
@@ -69,15 +69,19 @@ io.on("connection", (socket) => {
     socket.join(sessionId);
     const session = parties.find((session) => session.id === sessionId);
     if (session) {
-      session.guests.add(socket.id);
-      console.log("found an existing session");
-      if (session.paused) {
-        socket.emit("pause", session.currentTime);
+      if (session.guests.size > 0) {
+      
+        console.log("found an existing session");
+        socket.to(sessionId).emit("pollTimestamp", session.guests.keys().next().value);
+        console.log(socket.id);
+        session.guests.add(socket.id);
+        //}
       } else {
-        socket.to(sessionId).emit("pollTimestamp", socket.id);
+        console.log(socket.id);
+        session.guests.add(socket.id);
       }
+      // console.log(`User joined session: ${sessionId}`);
     }
-    console.log(`User joined session: ${sessionId}`);
   });
 
   socket.on("pause", (sessionId, timestamp) => {
@@ -99,10 +103,17 @@ io.on("connection", (socket) => {
   });
 
   socket.on("updateTime", (sessionId, timestamp) => {
+    console.log(timestamp)
     const session = parties.find((session) => session.id === sessionId);
     if (session) {
       session.currentTime = timestamp;
-      socket.to(sessionId).emit("play", session.currentTime);
+      if (session.paused) {
+        console.log("session: ", session);
+        socket.to(sessionId).emit("pause", timestamp, true);
+      } else {
+        console.log(sessionId)
+        socket.to(sessionId).emit("play", timestamp, false);
+      }
     }
   });
 
